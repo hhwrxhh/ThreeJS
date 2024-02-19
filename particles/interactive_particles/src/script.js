@@ -46,7 +46,7 @@ export default class Sketch {
 
   setupFBO() {
     this.size = 128
-    this.fbo0 = this.getRenderTarget() 
+    this.fbo = this.getRenderTarget() 
     this.fbo1 = this.getRenderTarget() 
   
     this.fboScene = new THREE.Scene()
@@ -69,7 +69,6 @@ export default class Sketch {
         this.data[index + 3] = 1.
       }    
     } 
-    console.log(this.data)
     this.fboTexture = new THREE.DataTexture(this.data, this.size, this.size, THREE.RGBAFormat, THREE.FloatType )
     this.fboTexture.magFilter = THREE.NearestFilter
     this.fboTexture.minFilter = THREE.NearestFilter
@@ -88,36 +87,69 @@ export default class Sketch {
     this.fboMesh = new THREE.Mesh(geometry, this.fboMaterial)
     this.fboScene.add(this.fboMesh)
   
+    this.renderer.setRenderTarget(this.fbo)
+    this.renderer.render(this.fboScene, this.fboCamera)
+    this.renderer.setRenderTarget(this.fbo1)
+    this.renderer.render(this.fboScene, this.fboCamera)
+
   }
 
   addMesh() {
 
     this.count = this.size ** 2
-    this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
+    let geometry = new THREE.BufferGeometry()
+    let positions = new Float32Array(this.count * 3)
+    let uv = new Float32Array(this.count * 2)
+    
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        let index = (i + j * this.size) 
+        
+        positions[index * 3 + 1] = Math.random()
+        positions[index * 3 + 0] = Math.random()
+        positions[index * 3 + 2] = 0 
+        uv[index * 2 + 0] = i / this.size
+        uv[index * 2 + 1] = j / this.size
+      }    
+    } 
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
 
     this.material = new THREE.ShaderMaterial({
       vertexShader: vertexShader,
       fragmentShader: fragmentShader,
       uniforms: {
         uPosition: { value: null },
+        uTime: { value: 0 }
 
       }
-    })
-
-    this.mesh = new THREE.Mesh(this.geometry, this.material)
-    this.scene.add(this.mesh)
+    })  
+    this.material.uniforms.uPosition.value = this.fboTexture
+    this.points = new THREE.Points(geometry, this.material)
+    this.scene.add(this.points)
   }
 
   render() {
     const elapsedTime = this.clock.getElapsedTime()
     this.controls.update()
     this.fboMaterial.uniforms.uTime.value = elapsedTime
-    this.renderer.render(this.scene, this.camera)
+    this.material.uniforms.uTime.value = elapsedTime
     window.requestAnimationFrame(this.render.bind(this))
+    
+    this.fboMaterial.uniforms.uPosition.value = this.fbo1.texture
+    this.material.uniforms.uPosition.value = this.fbo.texture
 
-    // this.renderer.setRenderTarget(null)
-    // this.renderer.render(this.fboScene, this.fboCamera)
-}
+    this.renderer.setRenderTarget(this.fbo)
+    this.renderer.render(this.fboScene, this.fboCamera)
+    this.renderer.setRenderTarget(null)
+    this.renderer.render(this.scene, this.camera)
+
+    // swap render targets
+    let tmp = this.fbo
+    this.fbo = this.fbo1
+    this.fbo1 = tmp
+  
+  }
   resize() {
     sizes.width = window.innerWidth
     sizes.height = window.innerHeight
