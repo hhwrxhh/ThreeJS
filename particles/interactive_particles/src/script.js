@@ -91,7 +91,6 @@ export default class Sketch {
     this.renderer.render(this.fboScene, this.fboCamera)
     this.renderer.setRenderTarget(this.fbo1)
     this.renderer.render(this.fboScene, this.fboCamera)
-
   }
 
   addMesh() {
@@ -135,7 +134,7 @@ export default class Sketch {
     this.fboMaterial.uniforms.uTime.value = elapsedTime
     this.material.uniforms.uTime.value = elapsedTime
     window.requestAnimationFrame(this.render.bind(this))
-    
+
     this.fboMaterial.uniforms.uPosition.value = this.fbo1.texture
     this.material.uniforms.uPosition.value = this.fbo.texture
 
