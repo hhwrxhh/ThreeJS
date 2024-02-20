@@ -18,7 +18,7 @@ export default class Sketch {
     document.getElementById('container').appendChild(this.renderer.domElement)
 
     this.camera = new THREE.PerspectiveCamera(70, sizes.width / sizes.height, 0.01, 10)
-    this.camera.position.z = 1
+    this.camera.position.z = 3
 
     this.scene = new THREE.Scene()
     this.clock = new THREE.Clock()
@@ -26,6 +26,7 @@ export default class Sketch {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
 
+    this.isPlaying = true
     this.setupFBO()
     this.addMesh()
 
@@ -36,7 +37,7 @@ export default class Sketch {
   }
 
   getRenderTarget() {
-     return new THREE.WebGLRenderTarget(this.width, this.height, {
+     return new THREE.WebGLRenderTarget(sizes.width, sizes.height, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
       format: THREE.RGBAFormat,
@@ -45,7 +46,7 @@ export default class Sketch {
   }
 
   setupFBO() {
-    this.size = 128
+    this.size = 128 * 2
     this.fbo = this.getRenderTarget() 
     this.fbo1 = this.getRenderTarget() 
   
@@ -69,7 +70,7 @@ export default class Sketch {
         this.data[index + 3] = 1.
       }    
     } 
-    this.fboTexture = new THREE.DataTexture(this.data, this.size, this.size, THREE.RGBAFormat, THREE.FloatType )
+    this.fboTexture = new THREE.DataTexture(this.data, this.size, this.size, THREE.RGBAFormat, THREE.FloatType)
     this.fboTexture.magFilter = THREE.NearestFilter
     this.fboTexture.minFilter = THREE.NearestFilter
     this.fboTexture.needsUpdate = true
@@ -81,9 +82,28 @@ export default class Sketch {
       fragmentShader: simFragment,
       uniforms: {
         uPosition: { value: this.fboTexture },
+        uInfo: { value: null }, 
         uTime: { value: 0 }
       }
     })
+
+    this.infoArray = new Float32Array(this.size * this.size * 4) // 4 is rgba values
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        let index = (i + j * this.size) * 4 // flat index of the this.infoArray
+
+        this.infoArray[index + 0] = 0.5 + Math.random()
+        this.infoArray[index + 1] = 0.5 + Math.random()
+        this.infoArray[index + 2] = 1.
+        this.infoArray[index + 3] = 1.
+      }    
+    } 
+    this.info = new THREE.DataTexture(this.infoArray, this.size, this.size, THREE.RGBAFormat, THREE.FloatType)
+    this.info.magFilter = THREE.NearestFilter
+    this.info.minFilter = THREE.NearestFilter
+    this.info.needsUpdate = true
+    this.fboMaterial.uniforms.uInfo.value = this.info
+
     this.fboMesh = new THREE.Mesh(geometry, this.fboMaterial)
     this.fboScene.add(this.fboMesh)
   
@@ -100,12 +120,22 @@ export default class Sketch {
     let positions = new Float32Array(this.count * 3)
     let uv = new Float32Array(this.count * 2)
     
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: vertexShader,
+      fragmentShader: fragmentShader,
+      uniforms: {
+        uPosition: { value: null },
+        uTime: { value: 0 }
+      },
+      transparent: true
+    })  
+
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         let index = (i + j * this.size) 
         
-        positions[index * 3 + 1] = Math.random()
         positions[index * 3 + 0] = Math.random()
+        positions[index * 3 + 1] = Math.random()
         positions[index * 3 + 2] = 0 
         uv[index * 2 + 0] = i / this.size
         uv[index * 2 + 1] = j / this.size
@@ -114,21 +144,14 @@ export default class Sketch {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
 
-    this.material = new THREE.ShaderMaterial({
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        uPosition: { value: null },
-        uTime: { value: 0 }
-
-      }
-    })  
     this.material.uniforms.uPosition.value = this.fboTexture
     this.points = new THREE.Points(geometry, this.material)
     this.scene.add(this.points)
   }
 
   render() {
+    if (!this.isPlaying) return
+
     const elapsedTime = this.clock.getElapsedTime()
     this.controls.update()
     this.fboMaterial.uniforms.uTime.value = elapsedTime
@@ -137,6 +160,7 @@ export default class Sketch {
 
     this.fboMaterial.uniforms.uPosition.value = this.fbo1.texture
     this.material.uniforms.uPosition.value = this.fbo.texture
+
 
     this.renderer.setRenderTarget(this.fbo)
     this.renderer.render(this.fboScene, this.fboCamera)
