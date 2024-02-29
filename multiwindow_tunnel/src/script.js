@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// import vertexShader from './shaders/vertex.glsl'
-// import fragmentShader from './shaders/fragment.glsl'
+import vertexShader from './shaders/vertex.glsl'
+import fragmentShader from './shaders/fragment.glsl'
 
 
 const sizes = {
@@ -17,10 +17,15 @@ export default class Sketch {
     document.getElementById('container').appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(70, sizes.width / sizes.height, 0.01, 10);
-    this.camera.position.z = 4;
+    this.camera.position.set(0, 0.0, 0.1);
 
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color( 0xffffff );
     this.clock = new THREE.Clock();
+
+    this.numPlanes = 90;
+    this.meshes = []
+    this.materials = []
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true; 
@@ -34,23 +39,46 @@ export default class Sketch {
   }
 
   addMesh() {
-    this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
 
-    // this.material = new THREE.ShaderMaterial({
-    //   vertexShader: vertexShader,
-    //   fragmentShader: fragmentShader
-    // })
-    this.material = new THREE.MeshBasicMaterial({ color: '#ff00ff', side: THREE.DoubleSide });
+    const getMaterial = (level) => {
+      let material = new THREE.ShaderMaterial({
+        transparent: true,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uTime: { value: 0},
+          uLevel: { value: level},
+        }
+      });
 
-    this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.scene.add(this.mesh);
+      material.uniforms.uTime.value = level * Math.PI * 2;
+      return material;
+    }
+    let geometry = new THREE.PlaneGeometry(2, 2, 2, 2);
+    
+    for (let i = 0; i < this.numPlanes; i++) {
+      let material = getMaterial(i / 30);
+      let tmpMesh = new THREE.Mesh(geometry, material);
+
+      tmpMesh.position.z =  -0.1 * i; 
+      this.scene.add(tmpMesh);
+      this.meshes.push(tmpMesh);
+      this.materials.push(material)
+    }
   }
+
+
 
   render() {
     const elapsedTime = this.clock.getElapsedTime();
 
-    this.mesh.rotation.x = Math.sin(elapsedTime);
-    this.mesh.rotation.y = Math.cos(elapsedTime);
+    // this.mesh.rotation.x = Math.sin(elapsedTime);
+    // this.mesh.rotation.y = Math.cos(elapsedTime);
+
+    this.materials.forEach((material, i) => {
+
+    })
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
